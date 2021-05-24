@@ -1,0 +1,61 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <MQTT.h> //For MQTT Broker
+// This #include statement was automatically added by the Particle IDE.
+#include <HC_SR04.h> //For the HC-SR04 Motion sensor
+// This #include statement was automatically added by the Particle IDE.
+#include <Adafruit_DHT.h> //For the DHT temp
+
+#define DHTPIN 2 
+#define DHTTYPE DHT11
+
+DHT dht(DHTPIN, DHTTYPE);
+
+MQTT client("test.mosquitto.org", 1883, callback);
+
+// This is called when a message is received. However, we do not use this feature in
+// this project so it will be left empty
+void callback(char* topic, byte* payload, unsigned int length) 
+{
+}
+int distance = 0;
+int trigPin = D5;
+int echoPin = D4;
+int led = D7;  // The on-board LED
+HC_SR04 rangeFinder = HC_SR04(trigPin, echoPin,0,300);
+
+
+void setup() {
+    dht.begin();
+    pinMode(led, OUTPUT);
+    client.connect("ProjectSIT210");
+}
+
+void loop() {
+    distance = rangeFinder.getDistanceCM();
+    Particle.publish("Distance", String(distance));
+    // Only try to send messages if we are connected
+    if (client.isConnected()) {
+        if (distance < 15)
+        {
+            client.publish("Security ", "Card Scanned");
+            delay(4000);
+            float t = 37;// Spoofing a temperature as DHT was being inconsistent
+            //float t = dht.getTempCelcius(); //Uncomment this if using DHT Sensor
+            Particle.publish("Temperature", String(t));
+            if (t<38)
+            {
+                client.publish("Security ", "Open Lock");
+            }
+            else
+            {
+                Particle.publish("Notify", "High temperature detected");
+                client.publish("Security ", "Stay Locked");
+            }
+        }
+        
+        delay(3000);
+        
+        // CALL THIS at the end of your loop
+        client.loop();
+    } 
+}
